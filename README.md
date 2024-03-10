@@ -161,7 +161,7 @@ issue up to version 0.9.4. See [this issue](https://github.com/nvim-neorg/neorg/
 for more info.
 
 # Next steps
-- [ ] Avoid always having to use Luasnip
-- [ ] Enable the `text` type captures for whole files
+- [x] Avoid always having to use Luasnip
+- [x] Enable the `text` type captures for whole files
 - [ ] Enable the `target` field for capturing under specific headings
 - [ ] Allow custom placeholders by passing a `data` field for each capture, or maybe even for the whole plugin

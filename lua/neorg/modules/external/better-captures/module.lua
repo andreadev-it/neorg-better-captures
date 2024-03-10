@@ -1,19 +1,21 @@
 local neorg = require('neorg.core')
 local log = neorg.log
 local module = neorg.modules.create('external.better-captures')
-local luasnip = require('luasnip')
-local luasnip_fmt = require('luasnip.extras.fmt')
+local luasnip_ok, luasnip = pcall(require, 'luasnip')
+local _, luasnip_fmt = pcall(require, 'luasnip.extras.fmt') -- If luasnip is ok, then this will be too
 
 ---@alias CaptureType "file" | "text"
 ---@alias InsertPosition "top" | "bottom"
+---@alias ComputableString string | function
 
 ---@class Capture
----@field path string | function The name and path of the file, or a function that returns it
----@field content string | function The content of the file, that will be passed to luasnip
+---@field path ComputableString The name and path of the file, or a function that returns it
+---@field content ComputableString The content of the file, that will be passed to luasnip
+---@field use_luasnip boolean Whether to use luasnip for the content
 ---@field snippet any A luasnip snippet to execute once the file is created
----@field workspace string | nil An optional workspace in which to enable the capture
+---@field workspace string? An optional workspace in which to enable the capture
 ---@field type CaptureType Either create a new file or append the text to an existing one
----@field target string The linkable onto which the text will be appended (if type is "text")
+---@field target ComputableString The linkable onto which the text will be appended (if type is "text")
 ---@field insert_position InsertPosition Decides wether to insert at the top or at the bottom of the target 
 
 module.setup = function ()
@@ -86,20 +88,39 @@ module.public = {
 
             pos = pos_map[capture.insert_position]
 
+            -- If the capture is using luasnip, and the
+            -- capture is of type "text", we should prepare
+            -- the line for the snippet expansion
+            if capture.use_luasnip then
+                vim.api.nvim_buf_set_lines(
+                    0,
+                    pos,
+                    pos,
+                    false,
+                    { "" }
+                )
+            end
+        end
+
+        if capture.use_luasnip then
+            local snippet = module.private.snippet_from_capture(capture)
+
+            luasnip.snip_expand(snippet, { pos = { pos, 0 } })
+        else
+            -- Split the text into lines for the neovim api
+            local lines = vim.split(
+                module.private.get_or_execute(capture.content),
+                '\n'
+            )
+
             vim.api.nvim_buf_set_lines(
                 0,
                 pos,
                 pos,
                 false,
-                { "" }
+                lines
             )
-
-            vim.api.nvim_win_set_cursor(0, { pos + 1, 0 })
         end
-
-        local snippet = module.private.snippet_from_capture(capture)
-
-        luasnip.snip_expand(snippet, { pos = { pos, 0 } })
     end,
 }
 
@@ -207,6 +228,7 @@ module.private = {
             return
         end
         w_defaults.content = capture.content
+        w_defaults.use_luasnip = module.private.should_use_luasnip(capture)
         w_defaults.snippet = capture.snippet
 
         w_defaults.workspace = capture.workspace -- default: nil
@@ -215,6 +237,24 @@ module.private = {
         w_defaults.insert_position = capture.insert_position or "bottom" --default: insert at the bottom of the file
 
         return w_defaults
+    end,
+
+    ---Returns wether or not to use luasnip for a specific capture.
+    ---Checks for the capture preferences, the module configuration
+    ---and also looks to check if luasnip is installed or not
+    ---@param capture Capture
+    ---@return boolean
+    should_use_luasnip = function (capture)
+        -- If luasnip is not installed, just do plain text
+        if not luasnip_ok then
+            return false
+        end
+
+        if capture.use_luasnip ~= nil then
+            return capture.use_luasnip
+        end
+
+        return module.config.public.use_luasnip
     end,
 
     ---Split a string into lines
@@ -243,10 +283,13 @@ module.config.public = {
     ---@type boolean
     auto_switch = false,
 
+    -- Whether to use luasnip for the captures or not
+    use_luasnip = true,
+
     -- The table of captures. The key is the name and the
     -- value is the capture details
     ---@type table<string, Capture>
-    captures = {}
+    captures = {},
 }
 
 
