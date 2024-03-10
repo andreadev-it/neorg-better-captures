@@ -48,12 +48,12 @@ code shows how to set it up on [Lazy.nvim](https://github.com/folke/lazy.nvim):
 ```
 
 # Settings
-The plugin configuration contains only two fields:
-- `auto_switch`: automatically switch workspace if a capture
-  that is being executed requires a specific one (default: `false`)
-- `captures`: this is the table that will contain all your
-  custom captures. It's a table that relates the name with the
-  capture definition.
+This plugin accept the following settings:
+|Field|Type|Description|
+|-----|----|-----------|
+|`auto_switch`|boolean|Automatically switch workspace if a capture that is being executed requires a specific one (default: `false`)|
+|`use_luasnip`|boolean|Whether to use luasnip if available or not (default: `true`)|
+|`captures`|table<string, Capture>|This is the table that will contain all your custom captures. It's a table that relates the name with the capture definition.|
 
 ## Capture definition
 Each capture can have different fields to customize how
@@ -62,6 +62,7 @@ it works:
 |-----|----|-----------|
 |`path`|string / function|*(required)* The location of the file in which the captured text will be appended. It might be a new file if the capture type is "file", or an existing one if the type is set to "text". In the second option, the text will be appended at a specific position in the file. The path will always be relative to the workspace root. You can pass either a string, or a function that will return a string.|
 |`content`|string / function|*(either this or `snippet` are required)* The content to insert into the file. You can use some placeholder strings that will be substituted when the capture gets executed, or pass a function that generates the text. Moreover, this string will be passed to Luasnip, and every `{}` will become a jumping point (a place where you can move to by just pressing Tab).
+|`use_luasnip`|boolean|Wether to use luasnip if available or not. If not set, it will default to the module configuration value, which itself defaults to `true`.
 |`snippet`|Luasnip snippet|A snippet that will be inserted instead of the `content`. This is here just to allow even further customization.
 |`workspace`|string|The workspace required for this capture to work. This is an optional field. When it is set, and the `auto_switch` option is turned off, an error message will appear if you are not inside the correct workspace. If the `auto_switch` option is turned on, you will be automatically switched to the workspace defined here. By default, no workspace is required.
 |`type`|"file" / "text"|This indicates what kind of capture you're creating. The type "file" means that you want to create a new file. The type "text" means that you want to insert a text within an already existing file (which path is defined in the `path` field). It will default to "file".
