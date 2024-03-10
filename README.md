@@ -13,6 +13,7 @@ of an existing file, either at the top or bottom, or
 - [Capture definition](#capture-definition)
 - [Placeholders](#placeholders)
 - [Examples](#examples)
+- [Known issues](#known-issues)
 - [Next steps](#next-steps)
 
 # Installation
@@ -147,6 +148,18 @@ end
   workspace = "zettelkasten"
 }
 ```
+
+# Known issues
+## Neovim hangs on text capture when the same file is opened
+This situation would require that you have a capture of type "file"
+and you execute it while having the file in the "target" field already
+opened and in the same buffer. In such a situation, you could see neovim
+just hanging completely.
+
+To solve this issue, simply update neovim. It looks like it was an
+issue up to version 0.9.4. See [this issue](https://github.com/nvim-neorg/neorg/issues/1258)
+for more info.
+
 # Next steps
 - [ ] Avoid always having to use Luasnip
 - [ ] Enable the `text` type captures for whole files
