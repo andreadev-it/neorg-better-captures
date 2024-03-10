@@ -7,6 +7,7 @@ local _, luasnip_fmt = pcall(require, 'luasnip.extras.fmt') -- If luasnip is ok,
 ---@alias CaptureType "file" | "text"
 ---@alias InsertPosition "top" | "bottom"
 ---@alias ComputableString string | function
+---@alias ComputableTable table | function
 
 ---@class Capture
 ---@field path ComputableString The name and path of the file, or a function that returns it
@@ -17,6 +18,7 @@ local _, luasnip_fmt = pcall(require, 'luasnip.extras.fmt') -- If luasnip is ok,
 ---@field type CaptureType Either create a new file or append the text to an existing one
 ---@field target ComputableString The linkable onto which the text will be appended (if type is "text")
 ---@field insert_position InsertPosition Decides wether to insert at the top or at the bottom of the target 
+---@field data ComputableTable A custom set of text replacements
 
 module.setup = function ()
     return {
@@ -72,7 +74,10 @@ module.public = {
         -- either get the value or execute the function and
         -- save the result
         local path = module.private.get_or_execute(capture.path)
-        path = module.private.replace_placeholders(path)
+        path = module.private.replace_placeholders(
+            path,
+            module.private.get_placeholders(capture)
+        )
 
         module.required['core.dirman'].create_file(path)
 
@@ -107,9 +112,13 @@ module.public = {
 
             luasnip.snip_expand(snippet, { pos = { pos, 0 } })
         else
-            -- Split the text into lines for the neovim api
+            -- Replace the placeholders, and then splits
+            -- the text into lines for the neovim api
             local lines = vim.split(
-                module.private.get_or_execute(capture.content),
+                module.private.replace_placeholders(
+                    module.private.get_or_execute(capture.content),
+                    module.private.get_placeholders(capture)
+                ),
                 '\n'
             )
 
@@ -165,16 +174,34 @@ module.private = {
         return value
     end,
 
+    ---Get all the replacement strings
+    ---@param capture Capture
+    ---@return table<string, string>
+    get_placeholders = function (capture)
+        local placeholders = {
+            -- generic
+            name = vim.fn.expand("$USER"),
+            -- date and time
+            date = vim.fn.strftime('%D'),
+            datetime = vim.fn.strftime('%c'),
+            isodate = vim.fn.strftime('%F'),
+            isodatetime = vim.fn.strftime('%FT%T%z')
+        }
+
+        return vim.tbl_extend(
+            "force",
+            placeholders,
+            module.private.get_or_execute(capture.data)
+        )
+    end,
+
     ---Replace all placeholders in the string with the corresponding values.
     ---@param str string
-    replace_placeholders = function (str)
-        -- generic
-        str = str:gsub('{name}', vim.fn.expand("$USER"))
-        -- date and time
-        str = str:gsub('{date}', vim.fn.strftime('%D'))
-        str = str:gsub('{datetime}', vim.fn.strftime('%c'))
-        str = str:gsub('{isodate}', vim.fn.strftime('%F'))
-        str = str:gsub('{isodatetime}', vim.fn.strftime('%FT%T%z'))
+    ---@return string
+    replace_placeholders = function (str, placeholders)
+        for name, value in pairs(placeholders) do
+            str = str:gsub('{' .. name .. '}', value)
+        end
 
         return str
     end,
@@ -187,7 +214,8 @@ module.private = {
             return capture.snippet
         else
             local content = module.private.replace_placeholders(
-                module.private.get_or_execute(capture.content)
+                module.private.get_or_execute(capture.content),
+                module.private.get_placeholders(capture)
             )
             return module.private.snippet_from_content(content)
         end
@@ -235,6 +263,7 @@ module.private = {
         w_defaults.type = capture.type or "file" -- default: new norg file
         w_defaults.target = capture.target -- default: nil
         w_defaults.insert_position = capture.insert_position or "bottom" --default: insert at the bottom of the file
+        w_defaults.data = capture.data or {}
 
         return w_defaults
     end,
