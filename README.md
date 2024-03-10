@@ -3,9 +3,9 @@ This [Neorg](https://github.com/nvim-neorg/neorg) plugin adds a way to quickly c
 follow a specific structure. You can set a variable path
 and a text that will be automatically inserted.
 
-In the near future it will also allow you to save the 
-captured text inside of an existing file, either at the
-top or bottom, or under a specific heading.
+It also allows you to save the captured text inside 
+of an existing file, either at the top or bottom, or 
+(in the future) under a specific heading.
 
 ## Table of contents
 - [Installation](#installation)
@@ -65,7 +65,7 @@ it works:
 |`workspace`|string|The workspace required for this capture to work. This is an optional field. When it is set, and the `auto_switch` option is turned off, an error message will appear if you are not inside the correct workspace. If the `auto_switch` option is turned on, you will be automatically switched to the workspace defined here. By default, no workspace is required.
 |`type`|"file" / "text"|This indicates what kind of capture you're creating. The type "file" means that you want to create a new file. The type "text" means that you want to insert a text within an already existing file (which path is defined in the `path` field). It will default to "file".
 |`target`|string / function|*Currently unused*. It will specify under which heading you want your text to go. It will be defined as a norg heading, with the ability to also use the `#` character. If no target is passed, then the text will be appended either at the top or at the bottom of the file
-|`insert_position`|"top" / "bottom"|*Currently unused*. It will indicate wether you want your text capture to be placed at the top of the file/heading, or at the bottom. It defaults to "bottom".
+|`insert_position`|"top" / "bottom"|It indicates wether you want your text capture to be placed at the top of the file/heading, or at the bottom. It defaults to "bottom".
 
 ## Placeholders
 |Placeholder|Substitution|
@@ -148,6 +148,7 @@ end
 }
 ```
 # Next steps
+- [ ] Avoid always having to use Luasnip
 - [ ] Enable the `text` type captures for whole files
 - [ ] Enable the `target` field for capturing under specific headings
 - [ ] Allow custom placeholders by passing a `data` field for each capture, or maybe even for the whole plugin

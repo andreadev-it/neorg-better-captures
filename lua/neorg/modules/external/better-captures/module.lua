@@ -74,9 +74,32 @@ module.public = {
 
         module.required['core.dirman'].create_file(path)
 
+        local pos = 0
+
+        -- If it is a text capture, add the necessary line and
+        -- set the cursor position accordingly
+        if capture.type == "text" then
+            local pos_map = {
+                top = 0,
+                bottom = vim.api.nvim_buf_line_count(0) -- Get the total number of line, which is the last line
+            }
+
+            pos = pos_map[capture.insert_position]
+
+            vim.api.nvim_buf_set_lines(
+                0,
+                pos,
+                pos,
+                false,
+                { "" }
+            )
+
+            vim.api.nvim_win_set_cursor(0, { pos + 1, 0 })
+        end
+
         local snippet = module.private.snippet_from_capture(capture)
 
-        luasnip.snip_expand(snippet, {})
+        luasnip.snip_expand(snippet, { pos = { pos, 0 } })
     end,
 }
 
