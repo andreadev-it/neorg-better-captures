@@ -169,7 +169,12 @@ module.private = {
     ---@param str string
     replace_placeholders = function (str)
         -- generic
-        str = str:gsub('{name}', vim.fn.expand("$USER"))
+        str = str:gsub(
+            '{name}',
+            os.getenv("USER") or
+            os.getenv("username") or
+            "/Couldn't get your username/"
+        )
         -- date and time
         str = str:gsub('{date}', vim.fn.strftime('%D'))
         str = str:gsub('{datetime}', vim.fn.strftime('%c'))
