@@ -8,6 +8,8 @@ local _, luasnip_fmt = pcall(require, 'luasnip.extras.fmt') -- If luasnip is ok,
 ---@alias InsertPosition "top" | "bottom"
 ---@alias ComputableString string | function
 ---@alias ComputableTable table | function
+---@alias LineRange { [1]: number, [2]: number }
+---@alias Headline { [1]: LineRange, [2]: string } 
 
 ---@class Capture
 ---@field path ComputableString The name and path of the file, or a function that returns it
@@ -24,7 +26,8 @@ module.setup = function ()
     return {
         requires = {
             'core.neorgcmd',
-            'core.dirman'
+            'core.dirman',
+            'core.queries.native'
         }
     }
 end
@@ -90,6 +93,12 @@ module.public = {
                 top = 0,
                 bottom = vim.api.nvim_buf_line_count(0) -- Get the total number of line, which is the last line
             }
+
+            local headlines = module.private.get_buffer_headlines(0)
+
+            if capture.target ~= nil then
+                -- TODO
+            end
 
             pos = pos_map[capture.insert_position]
 
@@ -300,6 +309,62 @@ module.private = {
             table.insert(result, line)
         end
         return result
+    end,
+
+    ---Get all headlines from the current buffer
+    ---comment
+    ---@return table<Headline>
+    get_buffer_headlines = function (buf)
+        ---@type table<Headline> A table of line numbers related to a heading
+        local headlines = {}
+
+        local tree = {
+            {
+                query = { "first", "document_content" },
+                subtree = {
+                    {
+                        query = { "all", "heading1"}
+                    },
+                    {
+                        query = { "all", "heading2"}
+                    },
+                    {
+                        query = { "all", "heading3"}
+                    },
+                    {
+                        query = { "all", "heading4"}
+                    },
+                    {
+                        query = { "all", "heading5"}
+                    },
+                    {
+                        query = { "all", "heading6"}
+                    },
+                }
+            }
+        }
+
+        local nodes_w_buf = module.required['core.queries.native'].query_nodes_from_buf(tree, 0)
+        vim.print(nodes_w_buf)
+
+        for i, node_details in ipairs(nodes_w_buf) do
+            local node = node_details[1]
+
+            local node_start = node:start()[1]
+            local node_end = node:end_()[1]
+            local ending = vim.api.nvim_buf_get_lines(buf, node_end, node_end + 1, true)
+            local title = vim.api.nvim_buf_get_lines(buf, node_start, node_start + 1, true)
+
+            if ending[1]:find("^%s*%-%-%-") then
+                node_end = node_end - 1
+            end
+
+            table.insert(headlines, { { node_start, node_end }, title })
+        end
+
+        vim.print(headlines)
+
+        return headlines
     end
 }
 
