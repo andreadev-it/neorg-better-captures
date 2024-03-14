@@ -5,7 +5,7 @@ and a text that will be automatically inserted.
 
 It also allows you to save the captured text inside 
 of an existing file, either at the top or bottom, or 
-(in the future) under a specific heading.
+under a specific heading.
 
 ## Table of contents
 - [Installation](#installation)
@@ -66,8 +66,9 @@ it works:
 |`snippet`|Luasnip snippet|A snippet that will be inserted instead of the `content`. This is here just to allow even further customization.
 |`workspace`|string|The workspace required for this capture to work. This is an optional field. When it is set, and the `auto_switch` option is turned off, an error message will appear if you are not inside the correct workspace. If the `auto_switch` option is turned on, you will be automatically switched to the workspace defined here. By default, no workspace is required.
 |`type`|"file" / "text"|This indicates what kind of capture you're creating. The type "file" means that you want to create a new file. The type "text" means that you want to insert a text within an already existing file (which path is defined in the `path` field). It will default to "file".
-|`target`|string / function|*Currently unused*. It will specify under which heading you want your text to go. It will be defined as a norg heading, with the ability to also use the `#` character. If no target is passed, then the text will be appended either at the top or at the bottom of the file
-|`insert_position`|"top" / "bottom"|It indicates wether you want your text capture to be placed at the top of the file/heading, or at the bottom. It defaults to "bottom".
+|`target`|string / function|It specifies under which heading you want your text to go. It will be defined as a norg heading, with the ability to also use the `#` character. If no target is passed, then the text will be appended either at the top or at the bottom of the file
+|`insert_position`|"top" / "bottom"|It indicates wether you want your text capture to be placed at the top of the file/heading, or at the bottom. It defaults to "bottom".|
+|`data`|table<string, string> / function|A table that maps a custom placeholder name to a replacement text. You can also pass a function that will be executed when the capture is run and returns such table.|
 
 ## Placeholders
 |Placeholder|Substitution|
@@ -81,26 +82,26 @@ it works:
 Here you can find some examples of capture configurations.
 
 ## Diary
-Here an example of how you might use this plugin to quickly capture
+This is an example of how you might use this plugin to quickly capture
 a diary entry (probably useless, since there already is a journal
 functionality in Neorg, but at least it gives you an idea)
 
 ```lua
-{
+diary = {
   path = 'diary/{isodate}.norg',
   content = [[
-  @document.meta
-  title: Diary for {datetime}
-  author: John Smith
-  created: {isodatetime}
-  updated: {isodatetime}
-  @end
+    @document.meta
+    title: Diary for {datetime}
+    author: John Smith
+    created: {isodatetime}
+    updated: {isodatetime}
+    @end
 
-  * What happened today
-  {}
+    * What happened today
+      {}
 
-  * Things I want to do tomorrow
-  {}
+    * Things I want to do tomorrow
+      {}
   ]],
   workspace = 'diary'
 }
@@ -108,44 +109,41 @@ functionality in Neorg, but at least it gives you an idea)
 
 ## Project creation
 This might be useful in some sort of GTD-like workflow.
-Be aware that the `text` type captures are not supported yet.
 
 ```lua
-{
+project = {
   path = 'gtd/projects.norg',
-  type = 'text'
+  type = 'text',
   content = [[
-  * {}
-  - ( ) {}
+    * {}
+      - ( ) {}
   ]],
   workspace = 'work'
 }
 ```
 
 ## Zettelkasten
-Here an example that might give you an idea of how this can be used
+This is an example that might give you an idea of how this can be used
 for building a zettelkasten-like experience:
 ```lua
-function id_from_datetime()
-  return vim.fn.strftime('%Y%m%d%H%M%S')
-end
--- ...
-{
-  path = function()
-    return 'notes/' .. id_from_datetime() .. '.norg'
+zettelkasten = {
+  data = function ()
+    return { id = vim.fn.strftime('%Y%m%d%H%M%S') }
   end,
-  content = function()
-    return [[
+  path = 'notes/{id}.norg',
+  content = [[
     @document.meta
     title: {}
     authors: John Smith
-    id: ]] .. id_from_datetime() .. [[
+    id: {id}
+    categories: [
+      {}
+    ]
     created: {isodatetime}
     updated: {isodatetime}
     @end
-    
-    ]]
-  end,
+
+  ]],
   workspace = "zettelkasten"
 }
 ```
@@ -161,8 +159,15 @@ To solve this issue, simply update neovim. It looks like it was an
 issue up to version 0.9.4. See [this issue](https://github.com/nvim-neorg/neorg/issues/1258)
 for more info.
 
-# Next steps
-- [x] Avoid always having to use Luasnip
-- [x] Enable the `text` type captures for whole files
-- [ ] Enable the `target` field for capturing under specific headings
-- [x] Allow custom placeholders by passing a `data` field for each capture, or maybe even for the whole plugin
+## Issues crating or opening files on Windows
+This issue stems from the different path separator used in linux vs windows.
+Try changin the path separator that you used in your "path" field from
+a `/` to a `\`, this should fix it.
+
+## Text captured under headings ends up in a nested heading
+Since a heading can include a sub-heading, the content might end up
+at the end of the last sub-heading, and be considered part of this
+inner heading content. This could be fixed in a future release
+by adding the necessary heading terminators (`---`) before
+the captured text, based on how many levels it has to terminate, but
+right now, you will have to do it by hand.
