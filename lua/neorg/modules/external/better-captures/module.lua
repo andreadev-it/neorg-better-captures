@@ -9,7 +9,6 @@ local _, luasnip_fmt = pcall(require, 'luasnip.extras.fmt') -- If luasnip is ok,
 ---@alias ComputableString string | function
 ---@alias ComputableTable table | function
 ---@alias LineRange { [1]: number, [2]: number }
----@alias Headline { [1]: LineRange, [2]: string } 
 
 ---@class Capture
 ---@field path ComputableString The name and path of the file, or a function that returns it
@@ -21,6 +20,11 @@ local _, luasnip_fmt = pcall(require, 'luasnip.extras.fmt') -- If luasnip is ok,
 ---@field target ComputableString The linkable onto which the text will be appended (if type is "text")
 ---@field insert_position InsertPosition Decides wether to insert at the top or at the bottom of the target 
 ---@field data ComputableTable A custom set of text replacements
+
+---@class HeadingDetails
+---@field range LineRange The lines that define the start and end of this heading
+---@field title string The title of this heading
+---@field level number The heading level (heading1, heading2, ...)
 
 module.setup = function ()
     return {
@@ -89,15 +93,30 @@ module.public = {
         -- If it is a text capture, add the necessary line and
         -- set the cursor position accordingly
         if capture.type == "text" then
+            local cur_buf = vim.api.nvim_get_current_buf()
+
             local pos_map = {
                 top = 0,
-                bottom = vim.api.nvim_buf_line_count(0) -- Get the total number of line, which is the last line
+                bottom = vim.api.nvim_buf_line_count(cur_buf) -- Get the total number of line, which is the last line
             }
 
-            local headlines = module.private.get_buffer_headlines(0)
+            local headings = module.private.get_buffer_headings(cur_buf)
 
             if capture.target ~= nil then
-                -- TODO
+                local target = module.private.get_or_execute(capture.target)
+
+                local heading = module.private.find_heading(target, headings)
+                if heading == nil then
+                    log.error("The requested heading was not found.")
+                    return
+                end
+
+                vim.print(heading)
+
+                pos_map = {
+                    top = heading.range[1],
+                    bottom = heading.range[2]
+                }
             end
 
             pos = pos_map[capture.insert_position]
@@ -106,6 +125,8 @@ module.public = {
             -- capture is of type "text", we should prepare
             -- the line for the snippet expansion
             if capture.use_luasnip then
+                vim.print(pos)
+                vim.print(type(pos))
                 vim.api.nvim_buf_set_lines(
                     0,
                     pos,
@@ -188,7 +209,8 @@ module.private = {
     ---@return table<string, string>
     get_placeholders = function (capture)
         -- Get the username from the OS
-        local username = os.getenv("USER") or
+        local username =
+            os.getenv("USER")     or
             os.getenv("username") or
             "Could not get your username"
 
@@ -311,61 +333,102 @@ module.private = {
         return result
     end,
 
-    ---Get all headlines from the current buffer
+    ---Get all headings from the current buffer
     ---comment
-    ---@return table<Headline>
-    get_buffer_headlines = function (buf)
-        ---@type table<Headline> A table of line numbers related to a heading
-        local headlines = {}
+    ---@return table<HeadingDetails>
+    get_buffer_headings = function (buf)
+        ---@type table<HeadingDetails> A table of line numbers related to a heading
+        local headings = {}
 
         local tree = {
             {
-                query = { "first", "document_content" },
-                subtree = {
-                    {
-                        query = { "all", "heading1"}
-                    },
-                    {
-                        query = { "all", "heading2"}
-                    },
-                    {
-                        query = { "all", "heading3"}
-                    },
-                    {
-                        query = { "all", "heading4"}
-                    },
-                    {
-                        query = { "all", "heading5"}
-                    },
-                    {
-                        query = { "all", "heading6"}
-                    },
-                }
-            }
+                query = { "all", "heading1" },
+                recursive = true,
+            },
+            {
+                query = { "all", "heading2" },
+                recursive = true,
+            },
+            {
+                query = { "all", "heading3" },
+                recursive = true,
+            },
+            {
+                query = { "all", "heading4" },
+                recursive = true,
+            },
+            {
+                query = { "all", "heading5" },
+                recursive = true,
+            },
+            {
+                query = { "all", "heading6" },
+                recursive = true,
+            },
         }
 
-        local nodes_w_buf = module.required['core.queries.native'].query_nodes_from_buf(tree, 0)
-        vim.print(nodes_w_buf)
+        local nodes_w_buf = module.required['core.queries.native'].query_nodes_from_buf(tree, buf)
 
-        for i, node_details in ipairs(nodes_w_buf) do
+        for _, node_details in ipairs(nodes_w_buf) do
             local node = node_details[1]
 
-            local node_start = node:start()[1]
-            local node_end = node:end_()[1]
-            local ending = vim.api.nvim_buf_get_lines(buf, node_end, node_end + 1, true)
-            local title = vim.api.nvim_buf_get_lines(buf, node_start, node_start + 1, true)
+            local heading = module.private.heading_from_node(node, buf)
 
-            if ending[1]:find("^%s*%-%-%-") then
-                node_end = node_end - 1
-            end
-
-            table.insert(headlines, { { node_start, node_end }, title })
+            table.insert(headings, heading)
         end
 
-        vim.print(headlines)
+        return headings
+    end,
 
-        return headlines
-    end
+    ---Get heading details from the respective treesitter node
+    ---@param node any
+    ---@return HeadingDetails
+    heading_from_node = function (node, buf)
+        local level = tonumber(node:type():sub(-1, -1))
+        local node_start, _, _ = node:start()
+        local node_end, _, _ = node:end_()
+        ---@type string
+        local title = vim.api.nvim_buf_get_lines(buf, node_start, node_start + 1, true)[1]
+        title = title:gsub("^%s*%*+%s", "")
+
+        return {
+            range = { node_start, node_end },
+            title = title,
+            level = level,
+        }
+    end,
+
+    ---Find a user-defined heaading string in the list of headings
+    ---@param target string
+    ---@param headings HeadingDetails[]
+    ---@return HeadingDetails?
+    find_heading = function (target, headings)
+        local target_title = nil
+        local target_prefix = target:match("^%s*(%*+)%s")
+        local target_level = -1
+
+        if target_prefix == nil then
+            if target:find("^%s*#%s") ~= nil then
+                target_level = -1
+                target_title = target:gsub("^%s*#%s", "")
+            else
+                log.error("The requested heading is malformed. Check your sintax and try again.")
+                return
+            end
+        else
+            target_level = target_prefix:len()
+            target_title = target:gsub("^%s*%*+%s", "")
+        end
+
+        for _, heading in ipairs(headings) do
+            if heading.title == target_title then
+                print("found same title")
+                if heading.level == target_level or target_level == -1 then
+                    return heading
+                end
+            end
+        end
+    end,
 }
 
 
