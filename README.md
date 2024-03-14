@@ -170,4 +170,4 @@ at the end of the last sub-heading, and be considered part of this
 inner heading content. This could be fixed in a future release
 by adding the necessary heading terminators (`---`) before
 the captured text, based on how many levels it has to terminate, but
-right now, you will have to do it by hand.
+right now you will have to do it by hand.
