@@ -101,25 +101,56 @@ module.public = {
             }
 
             local headings = module.private.get_buffer_headings(cur_buf)
+            local target_heading = nil
 
             if capture.target ~= nil then
+                ---@type string
                 local target = module.private.get_or_execute(capture.target)
 
-                local heading = module.private.find_heading(target, headings)
-                if heading == nil then
+                target_heading = module.private.find_heading(target, headings)
+                if target_heading == nil then
                     log.error("The requested heading was not found.")
                     return
                 end
 
-                vim.print(heading)
-
                 pos_map = {
-                    top = heading.range[1],
-                    bottom = heading.range[2]
+                    top = target_heading.range[1] + 1,
+                    bottom = target_heading.range[2]
                 }
             end
 
             pos = pos_map[capture.insert_position]
+
+            -- If we're pushing something to the end of a heading, check
+            -- if it's in an inner heading and exit out of all the necessary
+            -- layers.
+            if target_heading ~= nil and capture.insert_position == 'bottom' then
+                -- Find current level (based on the position)
+                local cur_heading = -1
+                for _, heading in ipairs(headings) do
+                    if heading.range[2] == pos and heading.level > cur_heading then
+                        cur_heading = heading.level
+                    end
+                end
+
+                if target_heading.level < cur_heading then
+                    local iterations = cur_heading - target_heading.level
+                    local lines = {}
+                    for _=1, iterations  do
+                        table.insert(lines, "---")
+                    end
+
+                    vim.api.nvim_buf_set_lines(
+                        0,
+                        pos,
+                        pos,
+                        false,
+                        lines
+                    )
+
+                    pos = pos + module.private.table_length(lines)
+                end
+            end
 
             -- If the capture is using luasnip, and the
             -- capture is of type "text", we should prepare
@@ -335,7 +366,7 @@ module.private = {
 
     ---Get all headings from the current buffer
     ---comment
-    ---@return table<HeadingDetails>
+    ---@return HeadingDetails[]
     get_buffer_headings = function (buf)
         ---@type table<HeadingDetails> A table of line numbers related to a heading
         local headings = {}
@@ -429,6 +460,17 @@ module.private = {
             end
         end
     end,
+
+    ---Get the number of entries of a table
+    ---@param t table
+    ---@return integer
+    table_length = function (t)
+        local count = 0
+        for _ in pairs(t) do
+            count = count + 1
+        end
+        return count
+    end
 }
 
 
