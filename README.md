@@ -14,7 +14,6 @@ under a specific heading.
 - [Placeholders](#placeholders)
 - [Examples](#examples)
 - [Known issues](#known-issues)
-- [Next steps](#next-steps)
 
 # Installation
 In the Neorg install configuration, add this plugin as
@@ -163,11 +162,3 @@ for more info.
 This issue stems from the different path separator used in linux vs windows.
 Try changin the path separator that you used in your "path" field from
 a `/` to a `\`, this should fix it.
-
-## Text captured under headings ends up in a nested heading
-Since a heading can include a sub-heading, the content might end up
-at the end of the last sub-heading, and be considered part of this
-inner heading content. This could be fixed in a future release
-by adding the necessary heading terminators (`---`) before
-the captured text, based on how many levels it has to terminate, but
-right now you will have to do it by hand.
